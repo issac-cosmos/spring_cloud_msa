@@ -4,6 +4,7 @@ import com.example.ordersystem.product.domain.Product;
 import com.example.ordersystem.product.dto.ProductRegisterDto;
 import com.example.ordersystem.product.dto.ProductResDto;
 import com.example.ordersystem.product.dto.ProductSearchDto;
+import com.example.ordersystem.product.dto.ProductUpdateStockDto;
 import com.example.ordersystem.product.service.ProductService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +31,16 @@ public class ProductController {
     public ResponseEntity<?> productList(Pageable pageable, ProductSearchDto dto){
         Page<ProductResDto> productResDtos = productService.findAll(pageable, dto);
         return new ResponseEntity<>(productResDtos,HttpStatus.OK);
+    }
+    @GetMapping("/{id}")
+    public ResponseEntity<?> productDetail(@PathVariable Long id){
+        ProductResDto dto = productService.productDetail(id);
+        return new ResponseEntity<>(dto, HttpStatus.OK);
+    }
+    @PutMapping("/updatestock")
+    public ResponseEntity<?> productStockUpdate(@RequestBody ProductUpdateStockDto dto){
+        Product product = productService.updateStockquantity(dto);
+        return new ResponseEntity<>(product.getId(), HttpStatus.OK);
     }
 
 }

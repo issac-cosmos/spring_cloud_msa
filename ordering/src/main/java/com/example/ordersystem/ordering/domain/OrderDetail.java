@@ -1,7 +1,6 @@
 package com.example.ordersystem.ordering.domain;
 
 import com.example.ordersystem.common.domain.BaseTimeEntity;
-import com.example.ordersystem.product.domain.Product;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,7 +21,5 @@ public class OrderDetail extends BaseTimeEntity {
     @JoinColumn(name = "ordering_id")
     private Ordering ordering;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id")
-    private Product product;
+    private Long productId;
 }

@@ -21,7 +21,7 @@ public class OrderingController {
     }
     @PostMapping("/create")
     public ResponseEntity<?> orderCreate(@RequestBody List<OrderCreateDto> dtos){
-        Ordering ordering = orderingService.orderCreate(dtos);
+        Ordering ordering = orderingService.orderKafkaCreate(dtos);
         return new ResponseEntity<>(ordering.getId(), HttpStatus.CREATED);
     }
 

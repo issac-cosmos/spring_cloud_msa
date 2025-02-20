@@ -1,22 +1,25 @@
 package com.example.ordersystem.product.service;
 
 import com.example.ordersystem.common.service.StockInventoryService;
-import com.example.ordersystem.member.domain.Member;
-import com.example.ordersystem.member.repository.MemberRepository;
 import com.example.ordersystem.product.domain.Product;
 import com.example.ordersystem.product.dto.ProductRegisterDto;
 import com.example.ordersystem.product.dto.ProductResDto;
 import com.example.ordersystem.product.dto.ProductSearchDto;
+import com.example.ordersystem.product.dto.ProductUpdateStockDto;
 import com.example.ordersystem.product.repository.ProductRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import org.apache.kafka.common.protocol.Message;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -38,16 +41,11 @@ import java.util.List;
 @Transactional
 public class ProductService {
     private final ProductRepository productRepository;
-    private final MemberRepository memberRepository;
     private final StockInventoryService stockInventoryService;
-    private final S3Client s3Client;
-    @Value("${cloud.aws.s3.bucket}")
-    private String bucket;
 
-    public ProductService(ProductRepository productRepository, MemberRepository memberRepository, S3Client s3Client, StockInventoryService stockInventoryService) {
+
+    public ProductService(ProductRepository productRepository, StockInventoryService stockInventoryService) {
         this.productRepository = productRepository;
-        this.memberRepository = memberRepository;
-        this.s3Client = s3Client;
         this.stockInventoryService = stockInventoryService;
 
     }
@@ -56,9 +54,8 @@ public class ProductService {
         try {
 //        member 조회
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            Member member = memberRepository.findByEmail(authentication.getName()).orElseThrow(() -> new EntityNotFoundException("not found"));
 
-            Product product = productRepository.save(dto.toEntity(member));
+            Product product = productRepository.save(dto.toEntity(authentication.getName()));
 //            redis 재고에 추가
             //redis는 transaction의 대상이 아니므로 , 에러시 별도의 다시 백업작업이 필요함.
             stockInventoryService.increaseStock(product.getId(),dto.getStockQuantity());
@@ -72,16 +69,6 @@ public class ProductService {
 //        먼저 local에 저장
             Path path = Paths.get("C:/Users/COM/Desktop/tmp/", fileName);
             Files.write(path, bytes, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-
-//            저장객체
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                    .bucket(bucket)
-                    .key(fileName)
-                    .build();
-//            저장실행
-            s3Client.putObject(putObjectRequest, RequestBody.fromFile(path));
-            String s3Url = s3Client.utilities().getUrl(a->a.bucket(bucket).key(fileName)).toExternalForm();
-            product.updateImagePath(s3Url);
 
             return product;
         }catch (IOException e){
@@ -112,6 +99,28 @@ public class ProductService {
         };
         Page<Product> productList = productRepository.findAll(specification,pageable);
         return productList.map(p->p.fromEntity());
+
+    }
+    public ProductResDto productDetail(Long id){
+        Product product = productRepository.findById(id).orElseThrow(()->new EntityNotFoundException("product is not found"));
+        return product.fromEntity();
+    }
+    public Product updateStockquantity(ProductUpdateStockDto dto){
+        Product product = productRepository.findById(dto.getProductId()).orElseThrow(()->new EntityNotFoundException("product is not found"));
+        product.updateStockQuantity(dto.getProductQuantity());
+        return product;
+    }
+    @KafkaListener(topics = "update-stock-topic", groupId = "product-group",containerFactory = "KafkaListener")
+    public void productConsumer(String message){
+
+        System.out.println("consumer message 수신 : " + message);
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            ProductUpdateStockDto dto = objectMapper.readValue(message,ProductUpdateStockDto.class);
+            this.updateStockquantity(dto);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
 
     }
 }

@@ -12,9 +12,18 @@ spring:
     database-platform: org.hibernate.dialect.MariaDBDialect
     generate-ddl: true
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show_sql: true
-
+  application:
+    name: ordering-service #member-service라는 이름으로 eureka에 등록
+  kafka:
+    kafka-server: localhost:9092
+server:
+  port: 0 #포트번호 0번으로 지정시 임의숫자값으로 port실행
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
 jwt:
   expiration: 1000
   #  인코딩된 문자 32자 이상 필요.(특수문자 안됌.)

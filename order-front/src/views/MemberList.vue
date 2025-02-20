@@ -42,7 +42,7 @@ export default{
     },
     async created(){
         try{
-            const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/member/list`);
+            const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/member-service/member/list`);
             this.memberList = response.data;
         }catch(e){
             console.log(e);
